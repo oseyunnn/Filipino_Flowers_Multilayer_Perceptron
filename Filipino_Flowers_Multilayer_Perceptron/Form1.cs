@@ -18,7 +18,7 @@ namespace Filipino_Flowers_Multilayer_Perceptron
         private NeuralNet neuralNetwork;
         private string selectedImagePath = null;
         private bool modelReady = false;
-        private const int TotalEpochs = 75;
+        private const int TotalEpochs = 100;
 
         //three stores datasets from different folders
         private double[][] trainingData;

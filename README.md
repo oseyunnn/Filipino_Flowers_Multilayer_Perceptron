@@ -1,69 +1,81 @@
 # Filipino Flowers Multilayer Perceptron
 
-A C# WinForms simulation that classifies five flower categories using a custom three-layer multilayer perceptron (3,072 RGB inputs, 64 hidden neurons, and 5 output neurons).
+## Project information
 
-## Flower classes and data
+This project is a C# Windows Forms application that classifies Filipino flower images using a custom three-layer multilayer perceptron. The project was developed by **Angela Encabo** and **Ycia Magnanao**.
 
-The project uses the supplied image dataset:
+The classifier recognizes five flower categories:
 
-- `banana_blossom`
-- `gumamela`
-- `katuray`
-- `squash_flower`
-- `sunflower`
+- Banana blossom
+- Gumamela
+- Katuray
+- Squash flower
+- Sunflower
 
-Images are resized to 32 x 32 RGB pixels and normalized to `[0, 1]`. The repository already contains separate `Data/train`, `Data/valid`, and `Data/test` folders. Loading is deterministic within each class because filenames are sorted before processing.
+The application targets **.NET Framework 4.7.2** and uses the existing custom neural-network implementation rather than an external machine-learning framework.
 
-## Running the simulation
+## How to run
 
 1. Open `Filipino_Flowers_Multilayer_Perceptron.slnx` in Visual Studio.
-2. Build and run the .NET Framework 4.7.2 WinForms project.
-3. Click **Load Dataset**.
-4. Click **Train Neural Network**. The training log records epoch progress, loss, accuracy, validation accuracy, and the final test report.
-5. Use **Upload Flower Image** and **Predict Flower** to classify a new image.
-6. Use **Save Training Log** to export the evidence required for submission.
+2. Build the solution and start the Windows Forms application.
+3. Click **Load Dataset**. The application loads images from `Data/train`, `Data/valid`, and `Data/test`.
+4. Click **Train Neural Network** to train or continue training the model.
+5. Monitor the training log for epoch progress, loss, accuracy, validation accuracy, and test results.
+6. Click **Save Training Log** to export the results as a text file.
+7. To classify an individual image, click **Upload Flower Image**, select a `.jpg`, `.jpeg`, or `.png` file, and click **Predict Flower**.
+8. To restore the saved weights without retraining, click **Load Trained Model**.
 
-The model is saved at `Models/flower_model.txt`. When training is run again, the existing model is loaded and training continues from those weights. The best validation checkpoint is saved, preventing a later epoch from replacing a better model.
+The trained model is stored in `Models/flower_model.txt`. Training automatically resumes from this file when it exists. The training log and model weights are separate: saving the log does not replace or save the model weights.
 
-## Training configuration
+## Data preparation
 
-- Architecture: 3,072 input neurons, 64 hidden neurons, 5 output neurons
-- Hidden and output activation: sigmoid
+Images are resized to 32 x 32 pixels and converted into 3,072 normalized RGB inputs. Each color value is scaled to the range `[0, 1]`. The dataset is separated into training, validation, and testing folders. File names are loaded in sorted order to provide reproducible processing.
+
+The training set is used to update weights. The validation set is used to select the best checkpoint. The test set is reserved for final evaluation and is not used to update the model.
+
+## Model and training configuration
+
+- Input layer: 3,072 neurons
+- Hidden layer: 64 neurons
+- Output layer: 5 neurons
+- Activation: sigmoid
 - Input-to-hidden learning rate: `0.03`
 - Hidden-to-output learning rate: `0.08`
-- Default training budget: `75` epochs
-- Samples are shuffled each epoch with a reproducible seed
-- Best validation accuracy is used for checkpoint selection
+- Current training budget: **100 epochs**
+- Training order: shuffled each epoch using a reproducible seed
+- Checkpoint strategy: save when validation accuracy improves
 
-The learning-rate and epoch values are intentionally recorded in the UI log. For a tuning experiment, change one configuration value at a time, save each exported log, and compare training loss, validation accuracy, test accuracy, precision, recall, and the confusion matrix.
+After training, the best validation checkpoint is loaded before the final evaluation. This prevents a later epoch with lower validation performance from becoming the active model.
 
-## Evaluation evidence
+## Previous testing and findings
 
-The final log contains:
+The project was built successfully under .NET Framework 4.7.2 after the implementation changes. Source diagnostics for the modified files reported no compilation errors.
 
-- Training loss (mean squared error)
-- Training, validation, and test accuracy
-- Per-class precision and recall on the test set
-- A five-class confusion matrix
+The training budget was increased in controlled stages:
 
-These metrics support classification evaluation instead of relying only on a final prediction.
+| Training version | Epochs | Purpose and finding |
+| --- | ---: | --- |
+| Initial configuration | 40 | Established the first improved training baseline. |
+| Extended configuration | 75 | Allowed additional learning while retaining the best validation checkpoint. |
+| Current configuration | 100 | Provides a larger training budget for the next measured experiment. |
 
-## Rubric mapping
+Testing showed that the model is more likely to produce incorrect predictions when the flower is distant, occupies a small part of the image, has a similar-colored background, or shares visual characteristics with another class. Increasing epochs may improve learning, but it cannot fully replace representative training data. These findings indicate that future accuracy improvements should focus on better image composition, additional varied examples, and training-only augmentation rather than changing the testing procedure.
 
-| Professor criterion | Evidence in this project |
-| --- | --- |
-| Functional correctness and backpropagation | `BackNeural.cs` performs forward propagation, output error calculation, hidden error propagation, weight updates, and bias updates. |
-| Data preprocessing and pipeline | `ImagePreprocessor.cs` resizes images and normalizes RGB values; `FlowerDatasetLoader.cs` loads class labels and maintains train/validation/test folders. |
-| Hyperparameter tuning and experimentation | The architecture, learning rates, epoch count, and checkpoint behavior are written to the training log; exported logs can be compared between runs. |
-| Evaluation and performance analysis | Accuracy, loss, per-class precision/recall, and the confusion matrix are printed for the unseen test set. |
-| Code quality, design, and documentation | Responsibilities are separated across loader, preprocessing, neural-network, form, and documentation files. The UI provides organized controls and a Filipino-flower visual theme. |
+The application records the following results after training:
 
-## Professor-library changes
+- Mean squared training loss
+- Training accuracy
+- Validation accuracy
+- Test accuracy
+- Precision and recall for each flower class
+- Five-class confusion matrix
 
-The existing public APIs and model text format were preserved. Minimal changes were made to the professor-provided neural-network implementation because the original initialization range was too large for a 3,072-input sigmoid network and could saturate activations:
+The exported training log should be used as the formal record of each experiment. Actual accuracy values should be taken from the log generated by the current dataset and machine rather than stated in advance.
 
-- `BackNeural.cs`: stable sigmoid bounds and more conservative learning rates.
-- `InputN.cs`: smaller input-layer startup weights.
-- `HiddenN.cs`: smaller hidden-layer startup weights.
+## Implementation notes
 
-No external machine-learning library was added.
+The image preprocessing path was optimized using bitmap locking and direct pixel copying instead of processing every pixel with repeated `GetPixel` calls. This reduces preprocessing overhead during repeated training.
+
+The saved model retains learned weights between application sessions. Loading the model restores those weights for prediction, and a later training session continues from them. Testing and prediction do not update the model.
+
+Minimal numerical changes were made to the existing professor-provided implementation: safer sigmoid handling and smaller initial weight scales were used to reduce saturation for the high-dimensional input. The public neural-network API and text weight format were preserved. No external machine-learning library was added.
