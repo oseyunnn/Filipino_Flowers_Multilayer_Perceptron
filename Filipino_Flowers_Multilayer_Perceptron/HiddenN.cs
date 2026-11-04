@@ -122,11 +122,10 @@ namespace Backprop
 				rand = new System.Random();
 			}
                 
-			int MaxLimit = + 1000; 
-                
-			int MinLimit = - 1000; 
+			int MaxLimit = +1000;
+			int MinLimit = -1000;
 
-			double number = (double) (rand.Next(MinLimit,MaxLimit))/2000;
+			double number = (double)(rand.Next(MinLimit, MaxLimit)) / 10000.0;
                 
 			return number; 
 		}

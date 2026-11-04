@@ -8,8 +8,8 @@ namespace Backprop
 		private INeuron [] ineuron;//approximatelty 3072
 		private HNeuron [] hneuron;// approx 64
 		private ONeuron [] oneuron;//approx 10
-		private const double LRPOUT =0.2;//learning rate for the the ouptput layer
-		private const double LRPIN = 0.15;// learning rate for the input layer
+		private const double LRPOUT = 0.08;//learning rate for the output layer
+		private const double LRPIN = 0.03;// learning rate for the input layer
 		private double [] errorComponent; // approx 10;
 		private double [] errorDerivative;
 		private double [] desiredout;
@@ -64,11 +64,12 @@ namespace Backprop
 		}
 		public double sigmoid(double dat)
 		{
-			if (dat>=20.00)
-			{
-				dat=32;
-			}
-			return (double)(1.0/(1.0 + System.Math.Exp(-dat)));
+			if (dat >= 20.0)
+				return 1.0;
+			if (dat <= -20.0)
+				return 0.0;
+
+			return 1.0 / (1.0 + System.Math.Exp(-dat));
 		}
 		public void calculateHA()
 		{

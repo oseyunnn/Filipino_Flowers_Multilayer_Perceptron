@@ -35,7 +35,10 @@ namespace Filipino_Flowers_Multilayer_Perceptron
                 if (!Directory.Exists(folder))
                     throw new DirectoryNotFoundException(folder);
 
-                foreach (string file in Directory.GetFiles(folder))
+                string[] files = Directory.GetFiles(folder);
+                Array.Sort(files, StringComparer.OrdinalIgnoreCase);
+
+                foreach (string file in files)
                 {
                     string extension =
                         Path.GetExtension(file).ToLowerInvariant();

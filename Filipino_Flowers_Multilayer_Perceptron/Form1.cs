@@ -15,9 +15,10 @@ namespace Filipino_Flowers_Multilayer_Perceptron
     public partial class Form1 : Form
     {
 
-        private NeuralNet neuralNetwork = new NeuralNet(3072, 64, 5);
+        private NeuralNet neuralNetwork;
         private string selectedImagePath = null;
         private bool modelReady = false;
+        private const int TotalEpochs = 75;
 
         //three stores datasets from different folders
         private double[][] trainingData;
@@ -26,6 +27,13 @@ namespace Filipino_Flowers_Multilayer_Perceptron
         public Form1()
         {
             InitializeComponent();
+
+            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+            {
+                return;
+            }
+
+            neuralNetwork = new NeuralNet(3072, 64, 5);
 
             string datasetPath = Path.GetFullPath(
                 Path.Combine(Application.StartupPath, @"..\..\Data")
@@ -161,7 +169,7 @@ namespace Filipino_Flowers_Multilayer_Perceptron
                 return;
             }
 
-            int totalEpochs = 20;
+            int totalEpochs = TotalEpochs;
 
             btnTrainModel.Enabled = false;
             btnLoadDataset.Enabled = false;
@@ -169,14 +177,9 @@ namespace Filipino_Flowers_Multilayer_Perceptron
 
             try
             {
-                modelReady = false;
-                // Start with a fresh neural network
-                neuralNetwork = new NeuralNet(3072, 64, 5);
+                txtTrainingLog.Clear();
 
-                double bestValidationAccuracy = -1;
-                int bestEpoch = 0;
-
-                // Location for saving the best model
+                // Resume from the saved checkpoint when available so later runs retain learning.
                 string modelFolder = Path.GetFullPath(
                     Path.Combine(Application.StartupPath, @"..\..\Models")
                 );
@@ -187,15 +190,32 @@ namespace Filipino_Flowers_Multilayer_Perceptron
                     modelFolder, "flower_model.txt"
                 );
 
+                if (File.Exists(modelPath))
+                {
+                    neuralNetwork = new NeuralNet(3072, 64, 5);
+                    neuralNetwork.loadWeights(modelPath);
+                    txtTrainingLog.AppendText("Resuming from saved model." + Environment.NewLine);
+                }
+                else
+                {
+                    neuralNetwork = new NeuralNet(3072, 64, 5);
+                    txtTrainingLog.AppendText("Starting a new model." + Environment.NewLine);
+                }
 
-                // Update progress on the interface
+                double bestValidationAccuracy = validationData != null && validationData.Length > 0
+                    ? CalculateAccuracy(validationData)
+                    : -1;
+                int bestEpoch = 0;
 
-                txtTrainingLog.Clear();
 
                 txtTrainingLog.AppendText(
                     "Starting Neural Network Training..." +
                     Environment.NewLine +
                     "Total Epochs: " + totalEpochs +
+                    Environment.NewLine +
+                    "Architecture: 3072 inputs / 64 hidden / 5 outputs" +
+                    Environment.NewLine +
+                    "Learning rates: input 0.03, output 0.08" +
                     Environment.NewLine +
                     "--------------------------------" +
                     Environment.NewLine
@@ -233,7 +253,7 @@ namespace Filipino_Flowers_Multilayer_Perceptron
                 {
                     Random random = new Random(42);
 
-                    // Repeat training for 20 epochs
+                    // Repeat training for the configured number of epochs
                     for (int epoch = 0; epoch < totalEpochs; epoch++)
                     {
                         // Shuffle images every epoch
@@ -309,21 +329,29 @@ namespace Filipino_Flowers_Multilayer_Perceptron
 
                 modelReady = true;
 
-                if (validationData == null || validationData.Length == 0)
-                {
-                    MessageBox.Show("No validation images loaded.");
-                    return;
-                }
-
-                // Calculate accuracy using unseen validation images
-
                 double trainingAccuracy = await Task.Run(() =>
                     CalculateAccuracy(trainingData)
                 );
 
-                double validationAccuracy = await Task.Run(() =>
-                    CalculateAccuracy(validationData)
-                );
+                double validationAccuracy = validationData != null && validationData.Length > 0
+                    ? await Task.Run(() => CalculateAccuracy(validationData))
+                    : 0.0;
+
+                double testAccuracy = testingData != null && testingData.Length > 0
+                    ? await Task.Run(() => CalculateAccuracy(testingData))
+                    : 0.0;
+
+                string evaluation = testingData != null && testingData.Length > 0
+                    ? BuildEvaluationReport(testingData)
+                    : "Test set was not loaded.";
+
+                txtTrainingLog.AppendText(
+                    Environment.NewLine +
+                    "Final evaluation" + Environment.NewLine +
+                    "Training Accuracy: " + trainingAccuracy.ToString("F2") + "%" + Environment.NewLine +
+                    "Validation Accuracy: " + validationAccuracy.ToString("F2") + "%" + Environment.NewLine +
+                    "Test Accuracy: " + testAccuracy.ToString("F2") + "%" + Environment.NewLine +
+                    evaluation + Environment.NewLine);
 
 
 
@@ -333,7 +361,8 @@ namespace Filipino_Flowers_Multilayer_Perceptron
                     "Training Accuracy: " +
                     trainingAccuracy.ToString("F2") + "%\n" +
                     "Validation Accuracy: " +
-                    validationAccuracy.ToString("F2") + "%"
+                     validationAccuracy.ToString("F2") + "%\n" +
+                     "Test Accuracy: " + testAccuracy.ToString("F2") + "%"
                 );
 
 
@@ -352,52 +381,116 @@ namespace Filipino_Flowers_Multilayer_Perceptron
         }
 
 
+        private string BuildEvaluationReport(double[][] dataset)
+        {
+            int[,] confusion = new int[5, 5];
+
+            foreach (double[] sample in dataset)
+            {
+                SetInputs(sample);
+                neuralNetwork.run();
+
+                int predictedClass = GetPredictedClass();
+                int actualClass = GetActualClass(sample);
+                confusion[actualClass, predictedClass]++;
+            }
+
+            StringBuilder report = new StringBuilder();
+            report.AppendLine("Per-class metrics (test set):");
+
+            for (int category = 0; category < 5; category++)
+            {
+                int truePositive = confusion[category, category];
+                int falsePositive = 0;
+                int falseNegative = 0;
+
+                for (int other = 0; other < 5; other++)
+                {
+                    if (other != category)
+                    {
+                        falsePositive += confusion[other, category];
+                        falseNegative += confusion[category, other];
+                    }
+                }
+
+                double precision = truePositive + falsePositive == 0
+                    ? 0.0
+                    : (double)truePositive / (truePositive + falsePositive);
+                double recall = truePositive + falseNegative == 0
+                    ? 0.0
+                    : (double)truePositive / (truePositive + falseNegative);
+
+                report.AppendLine(
+                    FlowerDatasetLoader.FlowerClasses[category] +
+                    " - Precision: " + precision.ToString("P2") +
+                    ", Recall: " + recall.ToString("P2"));
+            }
+
+            report.AppendLine("Confusion matrix (actual rows / predicted columns):");
+            report.AppendLine("\t" + string.Join("\t", FlowerDatasetLoader.FlowerClasses));
+
+            for (int row = 0; row < 5; row++)
+            {
+                string[] values = new string[5];
+                for (int column = 0; column < 5; column++)
+                    values[column] = confusion[row, column].ToString();
+
+                report.AppendLine(
+                    FlowerDatasetLoader.FlowerClasses[row] + "\t" +
+                    string.Join("\t", values));
+            }
+
+            return report.ToString();
+        }
+
+        private void SetInputs(double[] sample)
+        {
+            for (int i = 0; i < FlowerDatasetLoader.InputCount; i++)
+                neuralNetwork.setInputs(i, sample[i]);
+        }
+
+        private int GetPredictedClass()
+        {
+            int predictedClass = 0;
+            double highestOutput = neuralNetwork.getOuputData(0);
+
+            for (int i = 1; i < FlowerDatasetLoader.OutputCount; i++)
+            {
+                double output = neuralNetwork.getOuputData(i);
+                if (output > highestOutput)
+                {
+                    highestOutput = output;
+                    predictedClass = i;
+                }
+            }
+
+            return predictedClass;
+        }
+
+        private int GetActualClass(double[] sample)
+        {
+            for (int i = 0; i < FlowerDatasetLoader.OutputCount; i++)
+            {
+                if (sample[FlowerDatasetLoader.InputCount + i] == 1.0)
+                    return i;
+            }
+
+            return 0;
+        }
+
         private double CalculateAccuracy(double[][] dataset)
         {
+            if (dataset == null || dataset.Length == 0)
+                return 0.0;
+
             int correctPredictions = 0;
 
             foreach (double[] sample in dataset)
             {
-                // Send image pixels to the input layer
-                for (int i = 0; i < 3072; i++)
-                {
-                    neuralNetwork.setInputs(i, sample[i]);
-                }
-
-                // Run the neural network without training
+                SetInputs(sample);
                 neuralNetwork.run();
-
-                // Find the predicted flower category
-                int predictedClass = 0;
-                double highestOutput = neuralNetwork.getOuputData(0);
-
-                for (int i = 1; i < 5; i++)
-                {
-                    double output = neuralNetwork.getOuputData(i);
-
-                    if (output > highestOutput)
-                    {
-                        highestOutput = output;
-                        predictedClass = i;
-                    }
-                }
-
-                // Find the actual flower category
-                int actualClass = 0;
-
-                for (int i = 0; i < 5; i++)
-                {
-                    if (sample[3072 + i] == 1.0)
-                    {
-                        actualClass = i;
-                        break;
-                    }
-                }
-
-                if (predictedClass == actualClass)
-                {
+                if (GetPredictedClass() == GetActualClass(sample))
                     correctPredictions++;
-                }
             }
 
             return (double)correctPredictions / dataset.Length * 100.0;
@@ -571,5 +664,9 @@ namespace Filipino_Flowers_Multilayer_Perceptron
             }
         }
 
+        private void lblSubtitle_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }
