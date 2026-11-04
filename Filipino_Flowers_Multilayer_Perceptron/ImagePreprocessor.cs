@@ -13,7 +13,7 @@ namespace Filipino_Flowers_Multilayer_Perceptron
             using (Bitmap original = new Bitmap(imagePath))
             using (Bitmap resized = new Bitmap(32, 32, PixelFormat.Format24bppRgb))
             {
-                double[] inputs = new double[3072];
+                double[] inputs = new double[FlowerDatasetLoader.InputCount];
 
                 using (Graphics graphics = Graphics.FromImage(resized))
                 {
