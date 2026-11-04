@@ -33,7 +33,10 @@ namespace Filipino_Flowers_Multilayer_Perceptron
                 return;
             }
 
-            neuralNetwork = new NeuralNet(3072, 64, 5);
+            neuralNetwork = new NeuralNet(
+                FlowerDatasetLoader.InputCount,
+                64,
+                FlowerDatasetLoader.OutputCount);
 
             string datasetPath = Path.GetFullPath(
                 Path.Combine(Application.StartupPath, @"..\..\Data")
@@ -60,7 +63,11 @@ namespace Filipino_Flowers_Multilayer_Perceptron
             {
                 try
                 {
-                    neuralNetwork = new NeuralNet(3072, 64, 5);
+                    neuralNetwork = new NeuralNet(
+                        FlowerDatasetLoader.InputCount,
+                        64,
+                        FlowerDatasetLoader.OutputCount
+                    );
                     neuralNetwork.loadWeights(savedModelPath);
 
                     modelReady = true;
@@ -192,13 +199,21 @@ namespace Filipino_Flowers_Multilayer_Perceptron
 
                 if (File.Exists(modelPath))
                 {
-                    neuralNetwork = new NeuralNet(3072, 64, 5);
+                    neuralNetwork = new NeuralNet(
+                        FlowerDatasetLoader.InputCount,
+                        64,
+                        FlowerDatasetLoader.OutputCount
+                    );
                     neuralNetwork.loadWeights(modelPath);
                     txtTrainingLog.AppendText("Resuming from saved model." + Environment.NewLine);
                 }
                 else
                 {
-                    neuralNetwork = new NeuralNet(3072, 64, 5);
+                    neuralNetwork = new NeuralNet(
+                        FlowerDatasetLoader.InputCount,
+                        64,
+                        FlowerDatasetLoader.OutputCount
+                    );
                     txtTrainingLog.AppendText("Starting a new model." + Environment.NewLine);
                 }
 
@@ -271,16 +286,18 @@ namespace Filipino_Flowers_Multilayer_Perceptron
                         // Train on every image
                         foreach (double[] sample in images)
                         {
-                            for (int i = 0; i < 3072; i++)
+
+                            for (int i = 0; i < FlowerDatasetLoader.InputCount; i++)
                             {
                                 neuralNetwork.setInputs(i, sample[i]);
                             }
 
-                            for (int i = 0; i < 5; i++)
+                            for (int i = 0; i < FlowerDatasetLoader.OutputCount; i++)
                             {
                                 neuralNetwork.setDesiredOutput(
-                                    i, sample[3072 + i]);
+                                    i, sample[FlowerDatasetLoader.InputCount + i]);
                             }
+
 
                             neuralNetwork.learn();
                         }
@@ -324,7 +341,11 @@ namespace Filipino_Flowers_Multilayer_Perceptron
                 });
 
                 // Restore the best-performing epoch
-                neuralNetwork = new NeuralNet(3072, 64, 5);
+                neuralNetwork = new NeuralNet(
+                    FlowerDatasetLoader.InputCount,
+                    64,
+                    FlowerDatasetLoader.OutputCount
+                );
                 neuralNetwork.loadWeights(modelPath);
 
                 modelReady = true;
@@ -503,7 +524,7 @@ namespace Filipino_Flowers_Multilayer_Perceptron
             foreach (double[] sample in dataset)
             {
                 // Set the image inputs
-                for (int i = 0; i < 3072; i++)
+                for (int i = 0; i < FlowerDatasetLoader.InputCount; i++)
                 {
                     neuralNetwork.setInputs(i, sample[i]);
                 }
@@ -512,19 +533,22 @@ namespace Filipino_Flowers_Multilayer_Perceptron
                 neuralNetwork.run();
 
                 // Calculate squared error for each output
-                for (int i = 0; i < 5; i++)
+
+                for (int i = 0; i < FlowerDatasetLoader.OutputCount; i++)
                 {
                     double predicted = neuralNetwork.getOuputData(i);
-                    double expected = sample[3072 + i];
+                    double expected =
+                        sample[FlowerDatasetLoader.InputCount + i];
 
                     double error = expected - predicted;
-
                     totalLoss += error * error;
                 }
+
             }
 
             // Return the mean squared error
-            return totalLoss / (dataset.Length * 5);
+            return totalLoss /
+                (dataset.Length * FlowerDatasetLoader.OutputCount);
         }
 
 
@@ -549,8 +573,11 @@ namespace Filipino_Flowers_Multilayer_Perceptron
             try
             {
                 // Create the same network architecture
-                neuralNetwork = new NeuralNet(3072, 64, 5);
-
+                neuralNetwork = new NeuralNet(
+                    FlowerDatasetLoader.InputCount,
+                    64,
+                    FlowerDatasetLoader.OutputCount
+                );
                 // Load previously trained weights
                 neuralNetwork.loadWeights(modelPath);
                 modelReady = true;
@@ -600,7 +627,7 @@ namespace Filipino_Flowers_Multilayer_Perceptron
                 int predictedClass = 0;
                 double highestOutput = neuralNetwork.getOuputData(0);
 
-                for (int i = 1; i < 5; i++)
+                for (int i = 1; i < FlowerDatasetLoader.OutputCount; i++)
                 {
                     double output = neuralNetwork.getOuputData(i);
 
